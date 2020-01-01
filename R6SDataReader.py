@@ -48,7 +48,9 @@ def validate_round_num(parsedround: str, maxRounds: int = 3) -> str:
     return diff.get_close_matches(parsedround, roundList, 1)[0]
 
 def find_closest_username(parsedname: str, usernames: List[str]) -> str:
-    return diff.get_close_matches(parsedname, usernames, 1)[0]
+    names = diff.get_close_matches(parsedname, usernames, 1)
+    if len(names) > 0:
+        return diff.get_close_matches(parsedname, usernames, 1)[0]
 
 def get_usernames_from_csv(filename: str) -> List[str]:
     assert ".csv" in filename or ".txt" in filename
@@ -59,34 +61,29 @@ def get_usernames_from_csv(filename: str) -> List[str]:
             userList.append(row[0])
     return userList
 
-def main(filename: str, userfile: str) -> int:
+def main(filename: str, userfile: str, video: str) -> int:
     usernames: List[str] = get_usernames_from_csv(userfile)
     # TODO: add excel spreadsheet stuff
     # TODO: add logic to make sure the same kill is only added once
-    # vc = cv.VideoCapture(filename)
-    # rv, img = vc.read()
-    # if not rv:
-    #     print("failed to read image\n")
-    #     return -1
-    img = cv.imread(filename)
-    cv.imshow("original", img)
-    cv.waitKey()
-    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    img = cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 3, -3)
-    cv.imshow("inverted", img)
-    cv.waitKey()
-    killboxes: boxes = boxes(img)
-    cropped = killboxes.getKiller(0)
-    cv.imshow("cropped", cropped)
-    cv.waitKey()
-    cropped = killboxes.getVictim(0)
-    cv.imshow("cropped", cropped)
-    cv.waitKey()
-    text = pyte.image_to_string(cropped)
-
-    print(text)
-
-    print(find_closest_username(text, usernames))
+    vc = cv.VideoCapture(video)
+    rv = 1
+    counter = 0
+    killCount = 0
+    while rv:
+        rv, img = vc.read()
+        counter += 1
+        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        img = cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 3, -3)
+        killboxes: boxes = boxes(img)
+        killimg = killboxes.getKiller(0)
+        victimg = killboxes.getVictim(0)
+        killer = pyte.image_to_string(killimg)
+        victim = pyte.image_to_string(victimg)
+        actualKiller = find_closest_username(killer, usernames)
+        actualVictim = find_closest_username(victim, usernames)
+        if actualKiller != None and actualVictim != None:
+            killCount += 1
+    print(killCount)
 
     # TODO: either save the image and insert it into the excel sheet directly or add some serious filtering
     cropped = killboxes.getTimestamp()
@@ -102,5 +99,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--filename", type=str, help="image to open")
     parser.add_argument("-u", "--usernames", type=str, help="username file, csv or txt")
+    parser.add_argument("-v", "--video", type=str, help="video filename, mp4 only")
     args = parser.parse_args()
-    main(args.filename, args.usernames)
+    main(args.filename, args.usernames, args.video)
